@@ -102,3 +102,62 @@ export function absoluteTime(iso: string): string {
 export function toVectorLiteral(vec: number[]): string {
   return JSON.stringify(vec);
 }
+
+/** Grouped integer, Indian digit grouping. 12345 -> "12,345". */
+export function formatNumber(n: number): string {
+  return Math.round(n).toLocaleString("en-IN");
+}
+
+/** Signed integer for deltas. 12 -> "+12", -3 -> "-3", 0 -> "0". */
+export function formatSigned(n: number): string {
+  const rounded = Math.round(n);
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("en-IN")}`;
+}
+
+/** Short date for a coverage-log row, e.g. "12 Jun 2026". */
+export function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export type DeadlineInfo = {
+  overdue: boolean;
+  /** Not overdue and under 24 hours away. */
+  urgent: boolean;
+  /** Short magnitude label, e.g. "5h", "3d", "20m". */
+  label: string;
+};
+
+/** Countdown magnitude and urgency for a deadline, relative to `now`. */
+export function deadlineInfo(iso: string, now: number = Date.now()): DeadlineInfo {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return { overdue: false, urgent: false, label: "" };
+  const diff = then - now;
+  const overdue = diff < 0;
+  const abs = Math.abs(diff);
+  const hours = abs / 3_600_000;
+
+  let label: string;
+  if (hours < 1) label = `${Math.max(1, Math.round(abs / 60_000))}m`;
+  else if (hours < 48) label = `${Math.round(hours)}h`;
+  else label = `${Math.round(hours / 24)}d`;
+
+  return { overdue, urgent: !overdue && hours < 24, label };
+}
+
+/** Day grouping key (YYYY-MM-DD) and a stable display label for a timestamp. */
+export function dayKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+export function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}

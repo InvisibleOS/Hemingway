@@ -16,7 +16,7 @@ import { realLlm } from "./llm/real";
 import type { LlmProvider } from "./llm/types";
 
 import { mockSeoData } from "./seoData/mock";
-import { realSeoData } from "./seoData/real";
+import { realSeoData, seoDataConfigured } from "./seoData/real";
 import type { SeoDataProvider } from "./seoData/types";
 
 import { mockVerifier } from "./verifier/mock";
@@ -41,8 +41,24 @@ export const scraper: ScraperProvider =
 export const llm: LlmProvider =
   providerMode("LLM") === "real" ? realLlm : mockLlm;
 
-export const seoData: SeoDataProvider =
-  providerMode("SEODATA") === "real" ? realSeoData : mockSeoData;
+// seoData resolves to real DataForSEO only when it is both selected and
+// credentialed. If SEODATA_PROVIDER=real but the DataForSEO keys are absent it
+// falls back to the mock, so the snapshot job still runs and the report simply
+// badges the data as Sandbox (Module 4). This "real needs keys" fallback is
+// unique to seoData; other providers throw when misconfigured.
+const seoDataLive = providerMode("SEODATA") === "real" && seoDataConfigured();
+
+export const seoData: SeoDataProvider = seoDataLive ? realSeoData : mockSeoData;
+
+/**
+ * Source label for the data seoData returns: "dataforseo" when the live provider
+ * is active, "mock" otherwise. Written into metrics_snapshots.source and used to
+ * decide the report's Sandbox badge. Kept inside the provider layer so no feature
+ * code learns the env contract (CLAUDE.md, the provider rule).
+ */
+export function seoDataSource(): "dataforseo" | "mock" {
+  return seoDataLive ? "dataforseo" : "mock";
+}
 
 export const verifier: VerifierProvider =
   providerMode("VERIFIER") === "real" ? realVerifier : mockVerifier;

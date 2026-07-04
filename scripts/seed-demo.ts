@@ -17,14 +17,23 @@ import { insertJournalists } from "@/lib/db/journalists";
 import { insertArticles } from "@/lib/db/articles";
 import { insertCampaign } from "@/lib/db/campaigns";
 import { insertPitches } from "@/lib/db/pitches";
+import { insertPlacements } from "@/lib/db/placements";
+import { insertSnapshots } from "@/lib/db/metrics-snapshots";
+import { insertMonitorEvents } from "@/lib/db/monitor-events";
 import type {
   ArticleInsert,
+  Client,
   ClientInsert,
   EmailStatus,
   JournalistInsert,
   Json,
+  MetricsSnapshotInsert,
+  MonitorEventInsert,
+  Pitch,
   PitchInsert,
   PitchStatus,
+  PlacementInsert,
+  PlacementType,
   PublicationInsert,
   Vertical,
 } from "@/lib/db/types";
@@ -367,7 +376,10 @@ async function main(): Promise<void> {
       pushed_at: pushed ? new Date(now - (i + 1) * 20 * 3_600_000).toISOString() : null,
     };
   });
-  await insertPitches(pitchRows);
+  const pitches = await insertPitches(pitchRows);
+
+  console.log("Inserting metrics snapshots, monitor wins and coverage...");
+  const reporting = await seedReporting(clients, campaign, pitches);
 
   console.log("");
   console.log("Seed complete:");
@@ -377,6 +389,194 @@ async function main(): Promise<void> {
   console.log(`  articles:      ${articleRows.length}`);
   console.log(`  campaigns:     1 (active)`);
   console.log(`  pitches:       ${pitchRows.length}`);
+  console.log(`  snapshots:     ${reporting.snapshots} (6 months x ${clients.length} clients)`);
+  console.log(`  monitor wins:  ${reporting.monitorEvents}`);
+  console.log(`  placements:    ${reporting.placements}`);
+}
+
+// ---------------------------------------------------------------------------
+// Module 4 reporting seed: six monthly snapshots per client with an upward AI
+// mention trend after campaign start, plus a spread of placements across months
+// and types, some from pitches and some from won monitor events.
+// ---------------------------------------------------------------------------
+
+// Accelerating AI-mention curve (oldest -> newest); growth steepens from index 3,
+// after campaign start. Scaled per client. The per-engine breakdown is derived so
+// ai_mentions_count always equals the breakdown sum.
+const AI_SHAPE = [12, 18, 27, 52, 98, 174];
+const BACKLINKS_SHAPE = [214, 239, 271, 308, 356, 408];
+const REFERRING_SHAPE = [66, 73, 82, 94, 108, 124];
+
+type OutletSeed = { name: string; host: string };
+
+const REPORT_OUTLETS: Record<"fnb" | "hospitality", OutletSeed[]> = {
+  fnb: [
+    { name: "The Hindu", host: "thehindu.com" },
+    { name: "Deccan Herald", host: "deccanherald.com" },
+    { name: "Mint Lounge", host: "livemint.com" },
+    { name: "The Better India", host: "thebetterindia.com" },
+    { name: "YourStory", host: "yourstory.com" },
+  ],
+  hospitality: [
+    { name: "Conde Nast Traveller India", host: "cntraveller.in" },
+    { name: "Outlook Traveller", host: "outlooktraveller.com" },
+    { name: "Travel and Leisure India", host: "travelandleisureindia.in" },
+    { name: "Hospitality Biz India", host: "hospitalitybizindia.com" },
+  ],
+};
+
+type PlacementSpec = { month: number; type: PlacementType; origin: "pitch" | "monitor" | "direct" };
+
+// Spread across the six months and all five types; recent months are weighted so
+// the current month's report reads richly.
+const PLACEMENT_PLAN: Record<"fnb" | "hospitality", PlacementSpec[]> = {
+  fnb: [
+    { month: 0, type: "directory", origin: "direct" },
+    { month: 1, type: "listicle", origin: "direct" },
+    { month: 2, type: "mention", origin: "monitor" },
+    { month: 2, type: "quote", origin: "pitch" },
+    { month: 3, type: "feature", origin: "pitch" },
+    { month: 3, type: "listicle", origin: "direct" },
+    { month: 4, type: "quote", origin: "pitch" },
+    { month: 4, type: "feature", origin: "pitch" },
+    { month: 5, type: "feature", origin: "pitch" },
+    { month: 5, type: "quote", origin: "monitor" },
+  ],
+  hospitality: [
+    { month: 1, type: "directory", origin: "direct" },
+    { month: 2, type: "listicle", origin: "direct" },
+    { month: 3, type: "mention", origin: "monitor" },
+    { month: 4, type: "quote", origin: "monitor" },
+    { month: 4, type: "feature", origin: "direct" },
+    { month: 5, type: "feature", origin: "direct" },
+    { month: 5, type: "listicle", origin: "direct" },
+  ],
+};
+
+function headlineFor(type: PlacementType, client: Client, outlet: OutletSeed): string {
+  const city = "Bengaluru";
+  switch (type) {
+    case "feature":
+      return `Inside ${client.name}: the ${city} story behind the numbers`;
+    case "quote":
+      return `${client.name} on what ${client.vertical === "fnb" ? "diners" : "travellers"} want next`;
+    case "listicle":
+      return `${city} names to watch, featuring ${client.name}`;
+    case "directory":
+      return `${client.name} added to ${outlet.name}'s ${city} guide`;
+    case "mention":
+    default:
+      return `${client.name} among ${city}'s fast-rising brands`;
+  }
+}
+
+/** First-of-month dates for the trailing `count` months, oldest to newest (UTC). */
+function monthStarts(count: number): Date[] {
+  const nowDate = new Date();
+  const starts: Date[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    starts.push(new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - i, 1)));
+  }
+  return starts;
+}
+
+/** Split a mention total across engines so the parts always sum back to the total. */
+function breakdownFor(total: number): Record<string, number> {
+  const chatgpt = Math.round(total * 0.5);
+  const perplexity = Math.round(total * 0.24);
+  const gemini = Math.round(total * 0.16);
+  const claude = Math.max(0, total - chatgpt - perplexity - gemini);
+  return { chatgpt, perplexity, gemini, claude };
+}
+
+async function seedReporting(
+  clients: Client[],
+  campaign: { id: string },
+  pitches: Pitch[],
+): Promise<{ snapshots: number; monitorEvents: number; placements: number }> {
+  const months = monthStarts(6);
+  const snapshotRows: MetricsSnapshotInsert[] = [];
+  const placementRows: PlacementInsert[] = [];
+  let monitorCount = 0;
+
+  // Pitches that actually reached a journalist, reused as pitch-origin coverage.
+  const sentPitches = pitches.filter((p) => ["pushed", "replied", "placed"].includes(p.status));
+
+  for (const client of clients) {
+    const key = client.vertical === "hospitality" ? "hospitality" : "fnb";
+    const scale = client.vertical === "fnb" ? 1 : 0.68;
+    const outlets = REPORT_OUTLETS[key];
+
+    months.forEach((monthDate, i) => {
+      const total = Math.round(AI_SHAPE[i] * scale);
+      snapshotRows.push({
+        client_id: client.id,
+        snapshot_date: monthDate.toISOString().slice(0, 10),
+        backlinks_count: Math.round(BACKLINKS_SHAPE[i] * scale),
+        referring_domains: Math.round(REFERRING_SHAPE[i] * scale),
+        ai_mentions_count: total,
+        ai_mentions_breakdown: breakdownFor(total) as unknown as Json,
+        source: "mock",
+      });
+    });
+
+    // A won monitor event per monitor-origin placement, so that origin is real.
+    const monitorSpecs = PLACEMENT_PLAN[key].filter((s) => s.origin === "monitor");
+    const wonEvents = await insertMonitorEvents(
+      monitorSpecs.map((_, idx): MonitorEventInsert => ({
+        client_id: client.id,
+        source: idx % 2 === 0 ? "expert_platform" : "journo_request",
+        title: `${client.name} quoted on ${key === "fnb" ? "monsoon dining" : "slow travel"} demand`,
+        url: `https://sandbox.expert-requests.example/won/${client.id}/${idx}`,
+        summary: "Placement secured from a reactive expert request.",
+        deadline_at: new Date(Date.now() - (idx + 3) * 86_400_000).toISOString(),
+        status: "won",
+        draft_response: "Response sent and picked up.",
+      })),
+    );
+    monitorCount += wonEvents.length;
+
+    let monitorCursor = 0;
+    let pitchCursor = 0;
+    PLACEMENT_PLAN[key].forEach((spec, idx) => {
+      const monthDate = months[spec.month];
+      const outlet = outlets[idx % outlets.length];
+      const publishedAt = new Date(
+        Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth(), 12, 9 + (idx % 6), 0, 0),
+      ).toISOString();
+
+      const isFnb = client.vertical === "fnb";
+      let pitchId: string | null = null;
+      let monitorEventId: string | null = null;
+      if (spec.origin === "pitch" && isFnb && sentPitches.length) {
+        pitchId = sentPitches[pitchCursor % sentPitches.length].id;
+        pitchCursor += 1;
+      } else if (spec.origin === "monitor" && wonEvents.length) {
+        monitorEventId = wonEvents[monitorCursor % wonEvents.length].id;
+        monitorCursor += 1;
+      }
+
+      placementRows.push({
+        client_id: client.id,
+        campaign_id: isFnb && pitchId ? campaign.id : null,
+        pitch_id: pitchId,
+        monitor_event_id: monitorEventId,
+        publication_name: outlet.name,
+        url: `https://${outlet.host}/story/${slugify(client.name)}-${spec.type}-${idx}`,
+        headline: headlineFor(spec.type, client, outlet),
+        published_at: publishedAt,
+        placement_type: spec.type,
+      });
+    });
+  }
+
+  await insertSnapshots(snapshotRows);
+  await insertPlacements(placementRows);
+  return {
+    snapshots: snapshotRows.length,
+    monitorEvents: monitorCount,
+    placements: placementRows.length,
+  };
 }
 
 main()

@@ -107,3 +107,43 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * Report export document (Module 4). A light, client-ready deliverable that opts
+ * out of the dark app chrome. Serif headings are permitted here only
+ * (docs/ui-style.md). Backgrounds and the orange accent must survive print, and
+ * the page prints edge to edge with the browser supplying margins.
+ */
+.report-doc {
+  color-scheme: light;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.report-doc h1,
+.report-doc h2,
+.report-doc .report-serif {
+  font-family: var(--font-source-serif), Georgia, serif;
+}
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .report-screen {
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+  .report-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  .report-avoid-break {
+    break-inside: avoid;
+  }
+}
