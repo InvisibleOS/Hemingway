@@ -9,6 +9,7 @@ import { DataTable, type Column, type SortState } from "@/components/app/data-ta
 import { StatusPill } from "@/components/app/status-pill";
 import { RelativeTime } from "@/components/app/relative-time";
 import { EmptyState } from "@/components/app/empty-state";
+import { SandboxBadge } from "@/components/app/sandbox-badge";
 import { emailStatusMeta, EMAIL_STATUS_META } from "@/lib/status";
 import type { EmailStatus, Publication, Vertical } from "@/lib/db/types";
 import type {
@@ -138,13 +139,20 @@ export function JournalistsPanel({
 
   return (
     <div className="space-y-4">
-      <JournalistFilters
-        vertical={filters.vertical}
-        publicationId={filters.publicationId}
-        emailStatus={filters.emailStatus}
-        search={filters.search}
-        publications={publications}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <JournalistFilters
+            vertical={filters.vertical}
+            publicationId={filters.publicationId}
+            emailStatus={filters.emailStatus}
+            search={filters.search}
+            publications={publications}
+          />
+        </div>
+        {verifierSandbox && (
+          <SandboxBadge title="Email verification is mocked" className="mt-2 shrink-0" />
+        )}
+      </div>
 
       {data.rows.length === 0 ? (
         <EmptyState
@@ -219,7 +227,6 @@ export function JournalistsPanel({
         }}
         emailStatus={selected ? statusOf(selected) : "unverified"}
         emailVerifiedAt={selected ? verifiedAtOf(selected) : null}
-        verifierSandbox={verifierSandbox}
         verifying={verifyingId === selected?.id}
         onVerify={() => selected && handleVerify(selected)}
       />

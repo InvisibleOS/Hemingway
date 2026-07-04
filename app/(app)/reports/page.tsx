@@ -50,9 +50,7 @@ export default async function ReportsPage({
         <PageHeader
           title="Reports"
           description={`Monthly coverage, links and AI visibility for ${activeClient.name}.`}
-        >
-          <SnapshotButton clientId={activeClient.id} />
-        </PageHeader>
+        />
         <EmptyState
           icon={BarChart3}
           title="No report data yet"

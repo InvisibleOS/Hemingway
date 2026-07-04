@@ -11,6 +11,7 @@ import type {
   CampaignStatus,
   EmailStatus,
   MonitorEventStatus,
+  MonitorSource,
   PitchStatus,
   PlacementType,
   SendingDomainStatus,
@@ -74,6 +75,13 @@ export const MONITOR_EVENT_STATUS_META: Record<MonitorEventStatus, StatusMeta> =
   ignored: { label: "Ignored", hue: "neutral", dim: true },
 };
 
+// monitor_source is a category, not a status, so these read as calmer tags.
+export const MONITOR_SOURCE_META: Record<MonitorSource, StatusMeta> = {
+  expert_platform: { label: "Expert request", hue: "info" },
+  journo_request: { label: "Journalist request", hue: "progress" },
+  brand_mention: { label: "Brand mention", hue: "signal" },
+};
+
 export const PLACEMENT_TYPE_META: Record<PlacementType, StatusMeta> = {
   feature: { label: "Feature", hue: "progress", dim: true },
   quote: { label: "Quote", hue: "info", dim: true },
@@ -89,4 +97,5 @@ export const campaignStatusMeta = (s: CampaignStatus): StatusMeta => CAMPAIGN_ST
 export const pitchStatusMeta = (s: PitchStatus): StatusMeta => PITCH_STATUS_META[s];
 export const monitorEventStatusMeta = (s: MonitorEventStatus): StatusMeta =>
   MONITOR_EVENT_STATUS_META[s];
+export const monitorSourceMeta = (s: MonitorSource): StatusMeta => MONITOR_SOURCE_META[s];
 export const placementTypeMeta = (s: PlacementType): StatusMeta => PLACEMENT_TYPE_META[s];

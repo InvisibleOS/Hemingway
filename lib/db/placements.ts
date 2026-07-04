@@ -15,6 +15,15 @@ export async function listPlacements(
   return data ?? [];
 }
 
+export async function insertPlacement(
+  row: PlacementInsert,
+  db: Db = getDb(),
+): Promise<Placement> {
+  const { data, error } = await db.from("placements").insert(row).select().single();
+  if (error) throw error;
+  return data;
+}
+
 export async function insertPlacements(
   rows: PlacementInsert[],
   db: Db = getDb(),

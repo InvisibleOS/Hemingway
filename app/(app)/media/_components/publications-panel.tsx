@@ -28,7 +28,7 @@ function IngestionStatusCell({ pub }: { pub: Publication }) {
         </div>
         <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
+            className="h-full rounded-full bg-foreground/70 transition-all duration-500"
             style={{ width: `${Math.max(6, Math.min(100, pct))}%` }}
           />
         </div>

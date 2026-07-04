@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/app/status-pill";
+import { SandboxBadge } from "@/components/app/sandbox-badge";
 import { campaignStatusMeta } from "@/lib/status";
 import { verticalLabel } from "@/lib/format";
 import type { Campaign, Client } from "@/lib/db/types";
@@ -10,9 +11,11 @@ import { CampaignFormDialog } from "../../_components/campaign-form-dialog";
 export function CampaignHeader({
   campaign,
   client,
+  senderSandbox = false,
 }: {
   campaign: Campaign;
   client: Client | null;
+  senderSandbox?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -33,16 +36,19 @@ export function CampaignHeader({
             {client ? `${client.name} · ${verticalLabel(client.vertical)}` : "Client"}
           </p>
         </div>
-        <CampaignFormDialog
-          mode="edit"
-          campaign={campaign}
-          trigger={
-            <Button variant="outline" size="sm">
-              <Pencil className="size-4" />
-              Edit
-            </Button>
-          }
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          {senderSandbox && <SandboxBadge title="Sending platform is mocked" />}
+          <CampaignFormDialog
+            mode="edit"
+            campaign={campaign}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Pencil className="size-4" />
+                Edit
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       {(campaign.story_angle || campaign.data_study_title || campaign.data_study_summary) && (
@@ -71,7 +77,7 @@ export function CampaignHeader({
                   href={campaign.data_study_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block text-xs text-(--accent-subtle-fg) hover:underline"
+                  className="inline-block text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                   View study
                 </a>

@@ -80,6 +80,29 @@ export async function getPitchCountsByCampaigns(
   return out;
 }
 
+/** Pitch with campaign, client, and journalist context, for the cross-client dashboard. */
+export type PitchAwaitingApproval = Pitch & {
+  campaign: { id: string; name: string; client: { id: string; name: string } };
+  journalist: { name: string; publication: { name: string } };
+};
+
+/** Pitches still awaiting approval (drafted or edited) across all campaigns. */
+export async function listPitchesAwaitingApproval(
+  limit = 8,
+  db: Db = getDb(),
+): Promise<PitchAwaitingApproval[]> {
+  const { data, error } = await db
+    .from("pitches")
+    .select(
+      "*, campaign:campaigns!inner(id, name, client:clients!inner(id, name)), journalist:journalists!inner(name, publication:publications!inner(name))",
+    )
+    .in("status", ["drafted", "edited"])
+    .order("match_score", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as PitchAwaitingApproval[];
+}
+
 /** Journalist ids already pitched in a campaign, so matching can flag duplicates. */
 export async function getPitchedJournalistIds(
   campaignId: string,

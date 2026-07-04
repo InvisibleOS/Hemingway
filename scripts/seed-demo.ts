@@ -1,9 +1,15 @@
 /**
- * Demo seed. Leaves the app in a state where the media database browses richly:
- * two Bengaluru clients, five publications, fifty profiled journalists, two
- * hundred articles, and one draft campaign. Deterministic (fixed faker seed) so
- * the demo path is identical on every run.
+ * Demo seed. After one run the app tells a two-client story:
  *
+ *  - Client A (Kadai and Co, F&B): the flagship, mid-flight. A rich shared media
+ *    database, an active campaign with pitches in every status, a monitor feed of
+ *    open requests including one due today, and six months of reporting with a
+ *    clear AI-mentions uplift.
+ *  - Client B (Verandah Stays, hospitality): earlier-stage, for contrast. A
+ *    campaign still being pitched with nothing sent yet, a warming sending domain,
+ *    a couple of fresh monitor requests, and three months of modest early metrics.
+ *
+ * Deterministic (fixed faker seed) so the demo path is identical on every run.
  * Run with: npm run seed:demo  (loads .env.local for Supabase credentials)
  *
  * A script, not app code: it uses the service client via lib/db insert helpers.
@@ -22,9 +28,11 @@ import { insertSnapshots } from "@/lib/db/metrics-snapshots";
 import { insertMonitorEvents } from "@/lib/db/monitor-events";
 import type {
   ArticleInsert,
+  Campaign,
   Client,
   ClientInsert,
   EmailStatus,
+  Journalist,
   JournalistInsert,
   Json,
   MetricsSnapshotInsert,
@@ -71,12 +79,19 @@ const HOSPITALITY_BEATS = [
   "homestays and villas", "heritage stays", "weekend getaways near Bengaluru", "wellness retreats",
 ];
 
-const PITCH_SUBJECTS = [
+const FNB_PITCH_SUBJECTS = [
   "Monsoon menus are quietly outselling summer specials",
   "The data behind Bengaluru's monsoon food shift",
   "Why coastal comfort food spikes every June",
   "Bengaluru is ordering warmer and spicier in the rain",
   "A three-year read on how the city eats through the monsoon",
+];
+
+const HOSPITALITY_PITCH_SUBJECTS = [
+  "Where Bengaluru goes when it wants the city to slow down",
+  "The quiet return of the Western Ghats heritage stay",
+  "Slow-travel demand near Bengaluru is outpacing the resorts",
+  "A read on why short heritage stays are rising after the monsoon",
 ];
 
 const RECEPTIVITY_NOTES = [
@@ -146,6 +161,11 @@ function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+/** ISO timestamp `hours` from `now` (negative for the past). */
+function hoursFrom(now: number, hours: number): string {
+  return new Date(now + hours * 3_600_000).toISOString();
+}
+
 async function wipe(): Promise<void> {
   const db = getDb();
   const tables = [
@@ -166,14 +186,17 @@ async function wipe(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const now = Date.now();
+
   console.log("Clearing existing demo data...");
   await wipe();
 
   console.log("Inserting clients...");
   const clients = await insertClients(CLIENTS);
+  const fnbClient = clients.find((c) => c.vertical === "fnb") ?? clients[0];
+  const hospitalityClient = clients.find((c) => c.vertical === "hospitality") ?? clients[1];
 
   console.log("Inserting publications...");
-  const now = Date.now();
   // Vary the terminal ingestion state across publications so the status cell
   // (clean, complete-with-skips, and failed) is all visible in the demo.
   const publicationRows: PublicationInsert[] = PUBLICATIONS.map((p, i) => {
@@ -321,9 +344,17 @@ async function main(): Promise<void> {
     await insertArticles(articleRows.slice(i, i + 100));
   }
 
-  console.log("Inserting campaign with a live pitch board...");
-  const fnbClient = clients.find((c) => c.vertical === "fnb") ?? clients[0];
-  const campaign = await insertCampaign({
+  const pubVerticalById = new Map(publications.map((p) => [p.id, p.vertical]));
+  const fnbJournalists = journalists.filter((j) => pubVerticalById.get(j.publication_id) === "fnb");
+  const hospitalityJournalists = journalists.filter(
+    (j) => pubVerticalById.get(j.publication_id) === "hospitality",
+  );
+
+  // ---------------------------------------------------------------------------
+  // Client A: the flagship campaign, mid-flight, with a pitch in every status.
+  // ---------------------------------------------------------------------------
+  console.log("Inserting Client A campaign with a full-lifecycle pitch board...");
+  const campaignA = await insertCampaign({
     client_id: fnbClient.id,
     name: "Monsoon Menu Launch",
     story_angle:
@@ -335,51 +366,74 @@ async function main(): Promise<void> {
     status: "active",
   });
 
-  // A spread of pitch statuses so the approval queue and board look alive.
-  const fnbPublicationIds = new Set(
-    publications.filter((p) => p.vertical === "fnb").map((p) => p.id),
+  const pitchesA = await insertPitches(
+    buildPitchRows({
+      campaignId: campaignA.id,
+      clientName: fnbClient.name,
+      journalists: fnbJournalists,
+      subjects: FNB_PITCH_SUBJECTS,
+      now,
+      // Every status represented so the board and approval queue show the full
+      // lifecycle: fresh drafts, an edited draft, approvals, sent, replies, a
+      // placement, and the two negative terminal states.
+      plan: [
+        "drafted", "drafted", "drafted", "edited", "approved", "approved",
+        "pushed", "replied", "replied", "placed", "declined", "bounced",
+      ],
+      bodyFor: (first) =>
+        [
+          "Monsoon-season orders for warm coastal dishes rose 34 percent over three years across Bengaluru delivery data.",
+          "",
+          `Hi ${first}, ${fnbClient.name} is reviving forgotten monsoon coastal recipes and the ordering data backs the trend. Happy to share the full study and a founder interview, exclusive to you first.`,
+          "",
+          "Worth a look?",
+          "[sign-off]",
+        ].join("\n"),
+    }),
   );
-  const fnbJournalists = journalists.filter((j) => fnbPublicationIds.has(j.publication_id));
-  const pitchPlan: PitchStatus[] = [
-    "drafted",
-    "drafted",
-    "drafted",
-    "approved",
-    "approved",
-    "pushed",
-    "replied",
-    "replied",
-    "placed",
-  ];
 
-  const pitchRows: PitchInsert[] = pitchPlan.map((status, i) => {
-    const journalist = fnbJournalists[i % fnbJournalists.length];
-    const first = journalist.name.split(" ")[0];
-    const approved = status !== "drafted";
-    const pushed = status === "pushed" || status === "replied" || status === "placed";
-    return {
-      campaign_id: campaign.id,
-      journalist_id: journalist.id,
-      subject: pickBy(PITCH_SUBJECTS, journalist.id),
-      body: [
-        "Monsoon-season orders for warm coastal dishes rose 34 percent over three years across Bengaluru delivery data.",
-        "",
-        `Hi ${first}, ${fnbClient.name} is reviving forgotten monsoon coastal recipes and the ordering data backs the trend. Happy to share the full study and a founder interview, exclusive to you first.`,
-        "",
-        "Worth a look?",
-        "[sign-off]",
-      ].join("\n"),
-      status,
-      match_score: Math.round((0.9 - i * 0.03) * 100) / 100,
-      approved_by: approved ? "tech@strategi.is" : null,
-      approved_at: approved ? new Date(now - (i + 2) * 24 * 3_600_000).toISOString() : null,
-      pushed_at: pushed ? new Date(now - (i + 1) * 20 * 3_600_000).toISOString() : null,
-    };
+  // ---------------------------------------------------------------------------
+  // Client B: earlier-stage. A campaign still being pitched, nothing sent yet.
+  // ---------------------------------------------------------------------------
+  console.log("Inserting Client B campaign (earlier stage, still pitching)...");
+  const campaignB = await insertCampaign({
+    client_id: hospitalityClient.id,
+    name: "Heritage Stays Winter Preview",
+    story_angle:
+      "Verandah Stays is opening two restored Western Ghats homestays for the winter season, framed by post-monsoon slow-travel demand near Bengaluru.",
+    data_study_title: "Where Bengaluru travels when the city slows down",
+    data_study_summary:
+      "Early booking data points to a post-monsoon rise in short heritage stays within a four-hour drive of the city.",
+    data_study_url: "https://www.verandahstays.com/studies/winter-slow-travel",
+    status: "pitching",
   });
-  const pitches = await insertPitches(pitchRows);
+
+  const pitchesB = await insertPitches(
+    buildPitchRows({
+      campaignId: campaignB.id,
+      clientName: hospitalityClient.name,
+      journalists: hospitalityJournalists,
+      subjects: HOSPITALITY_PITCH_SUBJECTS,
+      now,
+      // Earlier stage: drafts under review, one edited, one approved, none sent.
+      plan: ["drafted", "drafted", "drafted", "edited", "approved"],
+      bodyFor: (first) =>
+        [
+          "Short heritage stays within a four-hour drive of Bengaluru are booking out earlier each post-monsoon season.",
+          "",
+          `Hi ${first}, ${hospitalityClient.name} is opening two restored Western Ghats homestays this winter and the early booking data backs the slow-travel shift. Happy to share the numbers and arrange a stay.`,
+          "",
+          "Would this fit an upcoming travel feature?",
+          "[sign-off]",
+        ].join("\n"),
+    }),
+  );
+
+  console.log("Inserting open monitor events (including one due today)...");
+  const openMonitor = await seedOpenMonitorEvents(fnbClient, hospitalityClient, now);
 
   console.log("Inserting metrics snapshots, monitor wins and coverage...");
-  const reporting = await seedReporting(clients, campaign, pitches);
+  const reporting = await seedReporting([fnbClient, hospitalityClient], campaignA, pitchesA, now);
 
   console.log("");
   console.log("Seed complete:");
@@ -387,25 +441,149 @@ async function main(): Promise<void> {
   console.log(`  publications:  ${publications.length}`);
   console.log(`  journalists:   ${journalists.length}`);
   console.log(`  articles:      ${articleRows.length}`);
-  console.log(`  campaigns:     1 (active)`);
-  console.log(`  pitches:       ${pitchRows.length}`);
-  console.log(`  snapshots:     ${reporting.snapshots} (6 months x ${clients.length} clients)`);
+  console.log(`  campaigns:     2 (A active, B pitching)`);
+  console.log(`  pitches:       ${pitchesA.length} (A, every status) + ${pitchesB.length} (B, early)`);
+  console.log(`  open events:   ${openMonitor} (actionable, one due today)`);
+  console.log(`  snapshots:     ${reporting.snapshots}`);
   console.log(`  monitor wins:  ${reporting.monitorEvents}`);
   console.log(`  placements:    ${reporting.placements}`);
 }
 
 // ---------------------------------------------------------------------------
-// Module 4 reporting seed: six monthly snapshots per client with an upward AI
-// mention trend after campaign start, plus a spread of placements across months
-// and types, some from pitches and some from won monitor events.
+// Pitches: build a spread of statuses for one campaign. Approval and push
+// timestamps stay causally ordered (approved before pushed), and negative
+// terminal states (declined, bounced) are treated as sent-then-lost so they
+// carry a push time too.
 // ---------------------------------------------------------------------------
 
-// Accelerating AI-mention curve (oldest -> newest); growth steepens from index 3,
-// after campaign start. Scaled per client. The per-engine breakdown is derived so
-// ai_mentions_count always equals the breakdown sum.
-const AI_SHAPE = [12, 18, 27, 52, 98, 174];
-const BACKLINKS_SHAPE = [214, 239, 271, 308, 356, 408];
-const REFERRING_SHAPE = [66, 73, 82, 94, 108, 124];
+const APPROVED_STATUSES = new Set<PitchStatus>([
+  "approved", "pushed", "replied", "placed", "declined", "bounced",
+]);
+const PUSHED_STATUSES = new Set<PitchStatus>([
+  "pushed", "replied", "placed", "declined", "bounced",
+]);
+
+function buildPitchRows(opts: {
+  campaignId: string;
+  clientName: string;
+  journalists: Journalist[];
+  subjects: string[];
+  plan: PitchStatus[];
+  now: number;
+  bodyFor: (firstName: string) => string;
+}): PitchInsert[] {
+  const { campaignId, journalists, subjects, plan, now, bodyFor } = opts;
+  return plan.map((status, i) => {
+    const journalist = journalists[i % journalists.length];
+    const first = journalist.name.split(" ")[0];
+    const approved = APPROVED_STATUSES.has(status);
+    const pushed = PUSHED_STATUSES.has(status);
+    return {
+      campaign_id: campaignId,
+      journalist_id: journalist.id,
+      subject: pickBy(subjects, journalist.id),
+      body: bodyFor(first),
+      status,
+      match_score: Math.round((0.9 - i * 0.03) * 100) / 100,
+      approved_by: approved ? "tech@strategi.is" : null,
+      approved_at: approved ? new Date(now - (i + 2) * 24 * 3_600_000).toISOString() : null,
+      pushed_at: pushed ? new Date(now - (i + 1) * 20 * 3_600_000).toISOString() : null,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Open monitor events: the live digest. Client A (flagship) gets a full set,
+// with one request due today so the countdown reads urgent; Client B gets a
+// couple of fresh requests to match its earlier stage. created_at is spread
+// across the last few days so the feed groups into arrival days.
+// ---------------------------------------------------------------------------
+
+async function seedOpenMonitorEvents(
+  fnb: Client,
+  hospitality: Client,
+  now: number,
+): Promise<number> {
+  const rows: MonitorEventInsert[] = [
+    {
+      client_id: fnb.id,
+      source: "expert_platform",
+      status: "new",
+      title: "Seeking a Bengaluru operator on cloud-kitchen unit economics",
+      url: "https://sandbox.expert-requests.example/fnb/live/cloud-kitchen",
+      summary:
+        "A business desk is preparing a piece on delivery-first kitchen margins and wants a founder or operator quote today.",
+      deadline_at: hoursFrom(now, 5), // due today: urgent countdown
+      created_at: hoursFrom(now, -1),
+    },
+    {
+      client_id: fnb.id,
+      source: "journo_request",
+      status: "new",
+      title: "Reporter needs a source on monsoon dining demand",
+      url: "https://sandbox.expert-requests.example/fnb/live/monsoon-demand",
+      summary:
+        "Feature on how the rains change what Bengaluru orders. Looking for seasonal ordering data and a chef view.",
+      deadline_at: hoursFrom(now, 46),
+      created_at: hoursFrom(now, -4),
+    },
+    {
+      client_id: fnb.id,
+      source: "expert_platform",
+      status: "drafted",
+      title: "Panel source wanted on QSR delivery margins",
+      url: "https://sandbox.expert-requests.example/fnb/live/qsr-margins",
+      summary:
+        "Trade panel needs an operator to speak to delivery commissions and menu engineering.",
+      deadline_at: hoursFrom(now, 30),
+      draft_response:
+        "Kadai and Co has held delivery margins steady by keeping a tight, high-velocity menu and pricing for the format rather than the dining room. Happy to share specifics on the record.",
+      created_at: hoursFrom(now, -27), // yesterday
+    },
+    {
+      client_id: fnb.id,
+      source: "brand_mention",
+      status: "new",
+      title: "Kadai and Co named in a Bengaluru monsoon-menu roundup",
+      url: "https://sandbox.expert-requests.example/fnb/live/mention-roundup",
+      summary:
+        "A city guide listed the ghee-roast set among monsoon picks. An amplify-and-thank opportunity.",
+      deadline_at: null,
+      created_at: hoursFrom(now, -50), // about two days ago
+    },
+    {
+      client_id: hospitality.id,
+      source: "journo_request",
+      status: "new",
+      title: "Travel reporter seeking heritage-stay operators near Bengaluru",
+      url: "https://sandbox.expert-requests.example/hospitality/live/heritage-operators",
+      summary:
+        "Weekend feature on restored homestays in the Western Ghats. Wants an operator and a guest anecdote.",
+      deadline_at: hoursFrom(now, 70),
+      created_at: hoursFrom(now, -2),
+    },
+    {
+      client_id: hospitality.id,
+      source: "expert_platform",
+      status: "new",
+      title: "Comment wanted on slow-travel demand near Bengaluru",
+      url: "https://sandbox.expert-requests.example/hospitality/live/slow-travel",
+      summary:
+        "Requesting an operator view on why short heritage stays are rising after the monsoon.",
+      deadline_at: hoursFrom(now, 44),
+      created_at: hoursFrom(now, -26),
+    },
+  ];
+  const inserted = await insertMonitorEvents(rows);
+  return inserted.length;
+}
+
+// ---------------------------------------------------------------------------
+// Module 4 reporting seed. Per-client plans so the two clients read differently:
+// Client A (F&B) has six months with an accelerating AI-mention curve; Client B
+// (hospitality) is earlier-stage, with three months of modest, early metrics.
+// The per-engine breakdown is derived so ai_mentions_count always equals its sum.
+// ---------------------------------------------------------------------------
 
 type OutletSeed = { name: string; host: string };
 
@@ -427,30 +605,49 @@ const REPORT_OUTLETS: Record<"fnb" | "hospitality", OutletSeed[]> = {
 
 type PlacementSpec = { month: number; type: PlacementType; origin: "pitch" | "monitor" | "direct" };
 
-// Spread across the six months and all five types; recent months are weighted so
-// the current month's report reads richly.
-const PLACEMENT_PLAN: Record<"fnb" | "hospitality", PlacementSpec[]> = {
-  fnb: [
-    { month: 0, type: "directory", origin: "direct" },
-    { month: 1, type: "listicle", origin: "direct" },
-    { month: 2, type: "mention", origin: "monitor" },
-    { month: 2, type: "quote", origin: "pitch" },
-    { month: 3, type: "feature", origin: "pitch" },
-    { month: 3, type: "listicle", origin: "direct" },
-    { month: 4, type: "quote", origin: "pitch" },
-    { month: 4, type: "feature", origin: "pitch" },
-    { month: 5, type: "feature", origin: "pitch" },
-    { month: 5, type: "quote", origin: "monitor" },
-  ],
-  hospitality: [
-    { month: 1, type: "directory", origin: "direct" },
-    { month: 2, type: "listicle", origin: "direct" },
-    { month: 3, type: "mention", origin: "monitor" },
-    { month: 4, type: "quote", origin: "monitor" },
-    { month: 4, type: "feature", origin: "direct" },
-    { month: 5, type: "feature", origin: "direct" },
-    { month: 5, type: "listicle", origin: "direct" },
-  ],
+type ReportingPlan = {
+  /** Trailing calendar months of data, oldest to newest. */
+  months: number;
+  ai: number[];
+  backlinks: number[];
+  referring: number[];
+  /** `month` indexes into this plan's own trailing-month window. */
+  placements: PlacementSpec[];
+};
+
+const REPORTING: Record<"fnb" | "hospitality", ReportingPlan> = {
+  // Six months, growth steepening from index 3 (after campaign start): a clear uplift.
+  fnb: {
+    months: 6,
+    ai: [12, 18, 27, 52, 98, 174],
+    backlinks: [214, 239, 271, 308, 356, 408],
+    referring: [66, 73, 82, 94, 108, 124],
+    placements: [
+      { month: 0, type: "directory", origin: "direct" },
+      { month: 1, type: "listicle", origin: "direct" },
+      { month: 2, type: "mention", origin: "monitor" },
+      { month: 2, type: "quote", origin: "pitch" },
+      { month: 3, type: "feature", origin: "pitch" },
+      { month: 3, type: "listicle", origin: "direct" },
+      { month: 4, type: "quote", origin: "pitch" },
+      { month: 4, type: "feature", origin: "pitch" },
+      { month: 5, type: "feature", origin: "pitch" },
+      { month: 5, type: "quote", origin: "monitor" },
+    ],
+  },
+  // Three months, modest and early: small numbers rising, a couple of placements.
+  hospitality: {
+    months: 3,
+    ai: [9, 15, 24],
+    backlinks: [58, 74, 96],
+    referring: [21, 27, 34],
+    placements: [
+      { month: 0, type: "directory", origin: "direct" },
+      { month: 1, type: "mention", origin: "monitor" },
+      { month: 2, type: "listicle", origin: "direct" },
+      { month: 2, type: "quote", origin: "direct" },
+    ],
+  },
 };
 
 function headlineFor(type: PlacementType, client: Client, outlet: OutletSeed): string {
@@ -491,29 +688,30 @@ function breakdownFor(total: number): Record<string, number> {
 
 async function seedReporting(
   clients: Client[],
-  campaign: { id: string },
-  pitches: Pitch[],
+  campaignA: Campaign,
+  pitchesA: Pitch[],
+  now: number,
 ): Promise<{ snapshots: number; monitorEvents: number; placements: number }> {
-  const months = monthStarts(6);
   const snapshotRows: MetricsSnapshotInsert[] = [];
   const placementRows: PlacementInsert[] = [];
   let monitorCount = 0;
 
   // Pitches that actually reached a journalist, reused as pitch-origin coverage.
-  const sentPitches = pitches.filter((p) => ["pushed", "replied", "placed"].includes(p.status));
+  const sentPitches = pitchesA.filter((p) => ["pushed", "replied", "placed"].includes(p.status));
 
   for (const client of clients) {
     const key = client.vertical === "hospitality" ? "hospitality" : "fnb";
-    const scale = client.vertical === "fnb" ? 1 : 0.68;
+    const plan = REPORTING[key];
+    const months = monthStarts(plan.months);
     const outlets = REPORT_OUTLETS[key];
 
     months.forEach((monthDate, i) => {
-      const total = Math.round(AI_SHAPE[i] * scale);
+      const total = plan.ai[i];
       snapshotRows.push({
         client_id: client.id,
         snapshot_date: monthDate.toISOString().slice(0, 10),
-        backlinks_count: Math.round(BACKLINKS_SHAPE[i] * scale),
-        referring_domains: Math.round(REFERRING_SHAPE[i] * scale),
+        backlinks_count: plan.backlinks[i],
+        referring_domains: plan.referring[i],
         ai_mentions_count: total,
         ai_mentions_breakdown: breakdownFor(total) as unknown as Json,
         source: "mock",
@@ -521,24 +719,29 @@ async function seedReporting(
     });
 
     // A won monitor event per monitor-origin placement, so that origin is real.
-    const monitorSpecs = PLACEMENT_PLAN[key].filter((s) => s.origin === "monitor");
+    // Dated a few days back so it sits below the live requests in the feed.
+    const monitorSpecs = plan.placements.filter((s) => s.origin === "monitor");
     const wonEvents = await insertMonitorEvents(
-      monitorSpecs.map((_, idx): MonitorEventInsert => ({
-        client_id: client.id,
-        source: idx % 2 === 0 ? "expert_platform" : "journo_request",
-        title: `${client.name} quoted on ${key === "fnb" ? "monsoon dining" : "slow travel"} demand`,
-        url: `https://sandbox.expert-requests.example/won/${client.id}/${idx}`,
-        summary: "Placement secured from a reactive expert request.",
-        deadline_at: new Date(Date.now() - (idx + 3) * 86_400_000).toISOString(),
-        status: "won",
-        draft_response: "Response sent and picked up.",
-      })),
+      monitorSpecs.map((_, idx): MonitorEventInsert => {
+        const at = new Date(now - (idx + 3) * 86_400_000).toISOString();
+        return {
+          client_id: client.id,
+          source: idx % 2 === 0 ? "expert_platform" : "journo_request",
+          title: `${client.name} quoted on ${key === "fnb" ? "monsoon dining" : "slow travel"} demand`,
+          url: `https://sandbox.expert-requests.example/won/${client.id}/${idx}`,
+          summary: "Placement secured from a reactive expert request.",
+          deadline_at: at,
+          created_at: at,
+          status: "won",
+          draft_response: "Response sent and picked up.",
+        };
+      }),
     );
     monitorCount += wonEvents.length;
 
     let monitorCursor = 0;
     let pitchCursor = 0;
-    PLACEMENT_PLAN[key].forEach((spec, idx) => {
+    plan.placements.forEach((spec, idx) => {
       const monthDate = months[spec.month];
       const outlet = outlets[idx % outlets.length];
       const publishedAt = new Date(
@@ -558,7 +761,7 @@ async function seedReporting(
 
       placementRows.push({
         client_id: client.id,
-        campaign_id: isFnb && pitchId ? campaign.id : null,
+        campaign_id: isFnb && pitchId ? campaignA.id : null,
         pitch_id: pitchId,
         monitor_event_id: monitorEventId,
         publication_name: outlet.name,

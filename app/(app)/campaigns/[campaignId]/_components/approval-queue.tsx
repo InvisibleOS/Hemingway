@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusPill } from "@/components/app/status-pill";
-import { SandboxBadge } from "@/components/app/sandbox-badge";
 import { RelativeTime } from "@/components/app/relative-time";
 import { EmptyState } from "@/components/app/empty-state";
 import { ReceptivityFlags } from "@/app/(app)/media/_components/receptivity-flags";
@@ -43,11 +42,9 @@ function wordCount(text: string | null): number {
 export function ApprovalQueue({
   campaignId,
   pitches,
-  senderSandbox,
 }: {
   campaignId: string;
   pitches: PitchWithJournalist[];
-  senderSandbox: boolean;
 }) {
   const router = useRouter();
   const [items, setItems] = React.useState(pitches);
@@ -264,7 +261,6 @@ export function ApprovalQueue({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {senderSandbox && <SandboxBadge title="Sending platform is mocked" />}
           <Button onClick={push} disabled={pushing || approvedCount === 0}>
             {pushing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             Push approved ({approvedCount})

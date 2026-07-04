@@ -161,3 +161,18 @@ export function dayLabel(iso: string): string {
     year: "numeric",
   });
 }
+
+/**
+ * Day-group heading that collapses the two most recent days to Today/Yesterday and
+ * falls back to the absolute dayLabel for older groups. Time-relative, so it must
+ * only be used after mount to avoid a hydration mismatch (see MonitorFeed).
+ */
+export function relativeDayLabel(iso: string, now: number = Date.now()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const startOfDay = (t: Date) => new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(new Date(now)) - startOfDay(d)) / 86_400_000);
+  if (dayDiff === 0) return "Today";
+  if (dayDiff === 1) return "Yesterday";
+  return dayLabel(iso);
+}

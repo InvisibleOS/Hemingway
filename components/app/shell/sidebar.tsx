@@ -25,9 +25,13 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
+  // Only animate width once the persisted state has been applied, so a stored
+  // collapsed preference does not visibly animate open then closed on first load.
+  const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "1");
+    setReady(true);
   }, []);
 
   const toggle = () =>
@@ -40,7 +44,8 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "sticky top-0 z-20 flex h-svh shrink-0 flex-col gap-3 border-r bg-card/40 p-3 transition-[width] duration-200",
+        "sticky top-0 z-20 flex h-svh shrink-0 flex-col gap-3 border-r bg-card/40 p-3",
+        ready && "transition-[width] duration-200",
         collapsed ? "w-16" : "w-64",
       )}
     >

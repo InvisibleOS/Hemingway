@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/app/status-pill";
-import { SandboxBadge } from "@/components/app/sandbox-badge";
 import { RelativeTime } from "@/components/app/relative-time";
 import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
@@ -44,7 +43,6 @@ export function JournalistDrawer({
   onOpenChange,
   emailStatus,
   emailVerifiedAt,
-  verifierSandbox,
   verifying,
   onVerify,
 }: {
@@ -53,7 +51,6 @@ export function JournalistDrawer({
   onOpenChange: (open: boolean) => void;
   emailStatus: EmailStatus;
   emailVerifiedAt: string | null;
-  verifierSandbox: boolean;
   verifying: boolean;
   onVerify: () => void;
 }) {
@@ -140,7 +137,6 @@ export function JournalistDrawer({
                       ) : (
                         <span>Not yet verified</span>
                       )}
-                      {verifierSandbox && <SandboxBadge />}
                     </div>
                     <Button
                       size="sm"

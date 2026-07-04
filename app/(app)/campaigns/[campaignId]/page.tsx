@@ -33,19 +33,23 @@ export default async function CampaignDetailPage({
   const queuePitches = pitches.filter((p) => QUEUE_STATUSES.has(p.status));
 
   const rawTab = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
+  // Default to the tab with content: the review queue if anything awaits review,
+  // else the board if pitches have progressed, else matching for a fresh campaign.
   const tab: CampaignTab =
     rawTab === "match" || rawTab === "board" || rawTab === "approvals"
       ? rawTab
-      : pitches.length === 0
-        ? "match"
-        : "approvals";
+      : queuePitches.length > 0
+        ? "approvals"
+        : pitches.length > 0
+          ? "board"
+          : "match";
 
   const senderSandbox = providerIsMock("SENDER");
   const hasStoryAngle = Boolean(campaign.story_angle && campaign.story_angle.trim());
 
   return (
     <div className="space-y-6">
-      <CampaignHeader campaign={campaign} client={client} />
+      <CampaignHeader campaign={campaign} client={client} senderSandbox={senderSandbox} />
       <CampaignTabs
         campaignId={campaignId}
         tab={tab}
@@ -54,9 +58,7 @@ export default async function CampaignDetailPage({
       />
 
       {tab === "match" && <MatchPanel campaignId={campaignId} hasStoryAngle={hasStoryAngle} />}
-      {tab === "approvals" && (
-        <ApprovalQueue campaignId={campaignId} pitches={queuePitches} senderSandbox={senderSandbox} />
-      )}
+      {tab === "approvals" && <ApprovalQueue campaignId={campaignId} pitches={queuePitches} />}
       {tab === "board" && <BoardPanel pitches={pitches} />}
     </div>
   );

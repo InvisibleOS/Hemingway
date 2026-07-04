@@ -196,7 +196,7 @@ export function MatchPanel({
                       {Math.round(c.score * 100)}
                     </div>
                     <div className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                      match {i === 0 ? "top" : ""}
+                      {i === 0 ? "top match" : "match"}
                     </div>
                   </div>
                 </label>

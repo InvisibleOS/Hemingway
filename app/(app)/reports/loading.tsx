@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/app/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/app/table-skeleton";
 
 export default function ReportsLoading() {
   return (
@@ -11,7 +12,7 @@ export default function ReportsLoading() {
         <Skeleton className="h-44 w-full rounded-lg" />
       </div>
       <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-64 w-full rounded-lg" />
+      <TableSkeleton columns={5} />
     </div>
   );
 }

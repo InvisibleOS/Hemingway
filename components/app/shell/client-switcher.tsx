@@ -63,7 +63,7 @@ export function ClientSwitcher({
           <button
             type="button"
             title={active?.name}
-            className="mx-auto flex size-9 items-center justify-center rounded-md border bg-card text-[11px] font-semibold text-(--accent-subtle-fg) hover:bg-muted"
+            className="mx-auto flex size-9 items-center justify-center rounded-md border bg-card text-[11px] font-semibold text-foreground hover:bg-muted"
           >
             {active ? initials(active.name) : <Building2 className="size-4" />}
           </button>
@@ -72,7 +72,7 @@ export function ClientSwitcher({
             type="button"
             className="flex w-full items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-left transition-colors hover:bg-muted"
           >
-            <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/15 text-[11px] font-semibold text-(--accent-subtle-fg)">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded bg-muted text-[11px] font-semibold text-foreground">
               {active ? initials(active.name) : "?"}
             </span>
             <span className="min-w-0 flex-1">
