@@ -16,16 +16,19 @@ import { insertPublications } from "@/lib/db/publications";
 import { insertJournalists } from "@/lib/db/journalists";
 import { insertArticles } from "@/lib/db/articles";
 import { insertCampaign } from "@/lib/db/campaigns";
+import { insertPitches } from "@/lib/db/pitches";
 import type {
   ArticleInsert,
   ClientInsert,
   EmailStatus,
   JournalistInsert,
   Json,
+  PitchInsert,
+  PitchStatus,
   PublicationInsert,
   Vertical,
 } from "@/lib/db/types";
-import { deterministicVector } from "@/lib/providers/_hash";
+import { deterministicVector, pickBy } from "@/lib/providers/_hash";
 import { hostname, toVectorLiteral } from "@/lib/format";
 
 faker.seed(20260704);
@@ -57,6 +60,14 @@ const FNB_BEATS = [
 const HOSPITALITY_BEATS = [
   "boutique hotels", "luxury resorts", "sustainable travel", "hospitality business",
   "homestays and villas", "heritage stays", "weekend getaways near Bengaluru", "wellness retreats",
+];
+
+const PITCH_SUBJECTS = [
+  "Monsoon menus are quietly outselling summer specials",
+  "The data behind Bengaluru's monsoon food shift",
+  "Why coastal comfort food spikes every June",
+  "Bengaluru is ordering warmer and spicier in the rain",
+  "A three-year read on how the city eats through the monsoon",
 ];
 
 const RECEPTIVITY_NOTES = [
@@ -301,9 +312,9 @@ async function main(): Promise<void> {
     await insertArticles(articleRows.slice(i, i + 100));
   }
 
-  console.log("Inserting draft campaign...");
+  console.log("Inserting campaign with a live pitch board...");
   const fnbClient = clients.find((c) => c.vertical === "fnb") ?? clients[0];
-  await insertCampaign({
+  const campaign = await insertCampaign({
     client_id: fnbClient.id,
     name: "Monsoon Menu Launch",
     story_angle:
@@ -312,8 +323,51 @@ async function main(): Promise<void> {
     data_study_summary:
       "Analysis of three years of seasonal ordering shows a clear shift toward warm, spice-forward coastal dishes between June and September.",
     data_study_url: "https://www.kadaiandco.in/studies/monsoon-menu",
-    status: "draft",
+    status: "active",
   });
+
+  // A spread of pitch statuses so the approval queue and board look alive.
+  const fnbPublicationIds = new Set(
+    publications.filter((p) => p.vertical === "fnb").map((p) => p.id),
+  );
+  const fnbJournalists = journalists.filter((j) => fnbPublicationIds.has(j.publication_id));
+  const pitchPlan: PitchStatus[] = [
+    "drafted",
+    "drafted",
+    "drafted",
+    "approved",
+    "approved",
+    "pushed",
+    "replied",
+    "replied",
+    "placed",
+  ];
+
+  const pitchRows: PitchInsert[] = pitchPlan.map((status, i) => {
+    const journalist = fnbJournalists[i % fnbJournalists.length];
+    const first = journalist.name.split(" ")[0];
+    const approved = status !== "drafted";
+    const pushed = status === "pushed" || status === "replied" || status === "placed";
+    return {
+      campaign_id: campaign.id,
+      journalist_id: journalist.id,
+      subject: pickBy(PITCH_SUBJECTS, journalist.id),
+      body: [
+        "Monsoon-season orders for warm coastal dishes rose 34 percent over three years across Bengaluru delivery data.",
+        "",
+        `Hi ${first}, ${fnbClient.name} is reviving forgotten monsoon coastal recipes and the ordering data backs the trend. Happy to share the full study and a founder interview, exclusive to you first.`,
+        "",
+        "Worth a look?",
+        "[sign-off]",
+      ].join("\n"),
+      status,
+      match_score: Math.round((0.9 - i * 0.03) * 100) / 100,
+      approved_by: approved ? "tech@strategi.is" : null,
+      approved_at: approved ? new Date(now - (i + 2) * 24 * 3_600_000).toISOString() : null,
+      pushed_at: pushed ? new Date(now - (i + 1) * 20 * 3_600_000).toISOString() : null,
+    };
+  });
+  await insertPitches(pitchRows);
 
   console.log("");
   console.log("Seed complete:");
@@ -321,7 +375,8 @@ async function main(): Promise<void> {
   console.log(`  publications:  ${publications.length}`);
   console.log(`  journalists:   ${journalists.length}`);
   console.log(`  articles:      ${articleRows.length}`);
-  console.log(`  campaigns:     1 (draft)`);
+  console.log(`  campaigns:     1 (active)`);
+  console.log(`  pitches:       ${pitchRows.length}`);
 }
 
 main()
