@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Hemingway theme. Dark only for MVP (docs/ui-style.md).
+ * shadcn semantic tokens are mapped to the palette in design/tokens.css so the
+ * primitives inherit our look instead of the default zinc theme. The `.dark`
+ * class is pinned on <html>, so `dark:` variants resolve to this same palette.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.5rem; /* rounded-lg is the ceiling */
+
+  /* Surfaces and text (docs/ui-style.md) */
+  --background: #0b0e11;
+  --foreground: #e6e9ed;
+  --card: #14181d;
+  --card-foreground: #e6e9ed;
+  --popover: #191e24;
+  --popover-foreground: #e6e9ed;
+
+  /* Brand accent: Strategi orange, the only accent */
+  --primary: #c0531f;
+  --primary-foreground: #ffffff;
+
+  --secondary: #191e24;
+  --secondary-foreground: #e6e9ed;
+  --muted: #14181d;
+  --muted-foreground: #9ba3ad;
+
+  /* shadcn "accent" is the subtle hover fill, NOT the brand accent */
+  --accent: #1b2128;
+  --accent-foreground: #e6e9ed;
+
+  --destructive: #f26d6d;
+
+  --border: #1e242b;
+  --input: #2a323b;
+  --ring: #c0531f;
+
+  /* Brand accent detail tokens */
+  --accent-brand: #c0531f;
+  --accent-brand-hover: #d3612b;
+  --accent-subtle-bg: #331a0e;
+  --accent-subtle-fg: #ee8a4e;
+
+  /* Semantic status hues (state, NOT the accent): muted bg + readable fg.
+     Consumed by the StatusPill component via bg-(--...) / text-(--...). */
+  --status-neutral-bg: #1c2229;
+  --status-neutral-fg: #9aa4b0;
+  --status-info-bg: #14233a;
+  --status-info-fg: #6ba1f0;
+  --status-progress-bg: #201a3a;
+  --status-progress-fg: #a78bfa;
+  --status-signal-bg: #0e2a2c;
+  --status-signal-fg: #4fd1c5;
+  --status-success-bg: #10291d;
+  --status-success-fg: #45c46a;
+  --status-warning-bg: #2a2410;
+  --status-warning-fg: #e5b454;
+  --status-danger-bg: #2a1517;
+  --status-danger-fg: #f26d6d;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-source-serif); /* report headings only */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+  /* Digits that line up in columns: tables, metrics. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
