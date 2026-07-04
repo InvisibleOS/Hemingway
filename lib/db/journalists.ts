@@ -160,6 +160,33 @@ export async function listJournalistsWithPublication(
   };
 }
 
+/**
+ * All journalists (with publication) in a vertical, unpaginated, for full-scan
+ * fallbacks like keyword matching where an alphabetical page would truncate the
+ * candidate set. Bounded by PostgREST's default row cap.
+ */
+export async function listAllJournalistsWithPublication(
+  vertical?: Vertical,
+  db: Db = getDb(),
+): Promise<JournalistWithPublication[]> {
+  let query = db.from("journalists").select(JOURNALIST_SELECT).order("name");
+  if (vertical) query = query.eq("publication.vertical", vertical);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as unknown as JournalistWithPublication[];
+}
+
+/** Fetch journalists (with publication embedded) by id, e.g. to hydrate match results. */
+export async function getJournalistsByIds(
+  ids: string[],
+  db: Db = getDb(),
+): Promise<JournalistWithPublication[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await db.from("journalists").select(JOURNALIST_SELECT).in("id", ids);
+  if (error) throw error;
+  return (data ?? []) as unknown as JournalistWithPublication[];
+}
+
 /** Map of publication_id -> journalist count, for the publications table. */
 export async function getJournalistCountsByPublication(
   db: Db = getDb(),
