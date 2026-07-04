@@ -33,3 +33,18 @@ export async function insertCampaign(
   if (error) throw error;
   return data;
 }
+
+export async function updateCampaign(
+  id: string,
+  patch: Partial<CampaignInsert>,
+  db: Db = getDb(),
+): Promise<Campaign | null> {
+  const { data, error } = await db
+    .from("campaigns")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
