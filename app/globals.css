@@ -2,10 +2,11 @@
 @import "tw-animate-css";
 
 /*
- * Hemingway theme. Dark only for MVP (docs/ui-style.md).
- * shadcn semantic tokens are mapped to the palette in design/tokens.css so the
- * primitives inherit our look instead of the default zinc theme. The `.dark`
- * class is pinned on <html>, so `dark:` variants resolve to this same palette.
+ * Hemingway theme. Light only: a warm ivory, editorial palette that reads
+ * royal and premium, paired with serif type. shadcn semantic tokens are mapped
+ * to this palette so the primitives inherit our look instead of the default
+ * zinc theme. No `.dark` class is applied, so any `dark:` variants in stock
+ * primitives simply never resolve and the light base styles stand.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -13,55 +14,56 @@
 :root {
   --radius: 0.5rem; /* rounded-lg is the ceiling */
 
-  /* Surfaces and text (docs/ui-style.md) */
-  --background: #0b0e11;
-  --foreground: #e6e9ed;
-  --card: #14181d;
-  --card-foreground: #e6e9ed;
-  --popover: #191e24;
-  --popover-foreground: #e6e9ed;
+  /* Surfaces and text: warm ivory parchment, deep warm ink */
+  --background: #f6f1e7;
+  --foreground: #211b12;
+  --card: #fffdf8;
+  --card-foreground: #211b12;
+  --popover: #fffdf8;
+  --popover-foreground: #211b12;
 
-  /* Brand accent: Strategi orange, the only accent */
-  --primary: #c0531f;
-  --primary-foreground: #ffffff;
+  /* Brand accent: Strategi orange, the only accent. Deepened for contrast on
+     the ivory ground while staying in the brand family. */
+  --primary: #b04a18;
+  --primary-foreground: #fdf8f0;
 
-  --secondary: #191e24;
-  --secondary-foreground: #e6e9ed;
-  --muted: #14181d;
-  --muted-foreground: #9ba3ad;
+  --secondary: #efe8da;
+  --secondary-foreground: #2a2318;
+  --muted: #efe8da;
+  --muted-foreground: #6a5f4b;
 
   /* shadcn "accent" is the subtle hover fill, NOT the brand accent */
-  --accent: #1b2128;
-  --accent-foreground: #e6e9ed;
+  --accent: #efe8da;
+  --accent-foreground: #211b12;
 
-  --destructive: #f26d6d;
+  --destructive: #b23b32;
 
-  --border: #1e242b;
-  --input: #2a323b;
-  --ring: #c0531f;
+  --border: #e4dbc8;
+  --input: #d8cdb6;
+  --ring: #b04a18;
 
   /* Brand accent detail tokens */
-  --accent-brand: #c0531f;
-  --accent-brand-hover: #d3612b;
-  --accent-subtle-bg: #331a0e;
-  --accent-subtle-fg: #ee8a4e;
+  --accent-brand: #b04a18;
+  --accent-brand-hover: #97400f;
+  --accent-subtle-bg: #f6e6d5;
+  --accent-subtle-fg: #9a410f;
 
   /* Semantic status hues (state, NOT the accent): muted bg + readable fg.
      Consumed by the StatusPill component via bg-(--...) / text-(--...). */
-  --status-neutral-bg: #1c2229;
-  --status-neutral-fg: #9aa4b0;
-  --status-info-bg: #14233a;
-  --status-info-fg: #6ba1f0;
-  --status-progress-bg: #201a3a;
-  --status-progress-fg: #a78bfa;
-  --status-signal-bg: #0e2a2c;
-  --status-signal-fg: #4fd1c5;
-  --status-success-bg: #10291d;
-  --status-success-fg: #45c46a;
-  --status-warning-bg: #2a2410;
-  --status-warning-fg: #e5b454;
-  --status-danger-bg: #2a1517;
-  --status-danger-fg: #f26d6d;
+  --status-neutral-bg: #eee7d8;
+  --status-neutral-fg: #665b47;
+  --status-info-bg: #e4edf7;
+  --status-info-fg: #285e94;
+  --status-progress-bg: #ece7f5;
+  --status-progress-fg: #5b3f97;
+  --status-signal-bg: #dcefec;
+  --status-signal-fg: #12736a;
+  --status-success-bg: #e2efdd;
+  --status-success-fg: #35733b;
+  --status-warning-bg: #f6ecd2;
+  --status-warning-fg: #7d5a0c;
+  --status-danger-bg: #f6e2df;
+  --status-danger-fg: #a83a30;
 }
 
 @theme inline {
@@ -89,9 +91,13 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --font-sans: var(--font-geist-sans);
+  /* Serif is the default UI face. `--font-sans` is mapped to the body serif so
+     every stock class and default inherit the serif look without per-component
+     edits. `--font-display` is the high-contrast heading serif. */
+  --font-sans: var(--font-source-serif);
+  --font-serif: var(--font-source-serif);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-source-serif); /* report headings only */
 }
 
 @layer base {
@@ -100,7 +106,19 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans), system-ui, sans-serif;
+    font-family: var(--font-source-serif), Georgia, serif;
+  }
+  /* Headings carry the high-contrast display serif for the editorial, premium
+     tone. Components that render titles as non-heading elements can opt in with
+     the `.font-display` utility. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
   }
   /* Digits that line up in columns: tables, metrics. */
   .tabular-nums {
@@ -116,14 +134,14 @@
  */
 .report-doc {
   color-scheme: light;
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-source-serif), Georgia, serif;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 .report-doc h1,
 .report-doc h2,
 .report-doc .report-serif {
-  font-family: var(--font-source-serif), Georgia, serif;
+  font-family: var(--font-display), Georgia, serif;
 }
 
 @media print {

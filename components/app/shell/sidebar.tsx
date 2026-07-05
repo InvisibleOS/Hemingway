@@ -54,7 +54,7 @@ export function Sidebar({
           H
         </span>
         {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight">Hemingway</span>
+          <span className="font-display text-base font-semibold tracking-tight">Hemingway</span>
         )}
       </Link>
 

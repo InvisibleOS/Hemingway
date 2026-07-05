@@ -4,13 +4,16 @@ The feel: a serious internal tool a well-funded team uses daily.
 Linear/Vercel-dashboard energy, not a marketing site, not default shadcn.
 
 ## Foundation
-- Dark-neutral base: near-black/deep slate surfaces (#0B0E11 background,
-  #14181D cards, #1E242B borders as a starting palette, tune as needed)
-- One accent only: Strategi orange #C0531F. Used for primary actions,
-  active nav, focus rings, key chart series. Never for large fills.
-- Light mode not required for MVP.
-- Typography: Geist or Inter for everything. A serif (Source Serif 4) is
-  allowed ONLY for report headings in Module 4 exports.
+- Warm ivory base: parchment surfaces (#F6F1E7 background, #FFFDF8 cards,
+  #E4DBC8 borders as a starting palette, tune as needed). Deep warm ink
+  (#211B12) for text. The look is editorial, royal, premium.
+- One accent only: Strategi orange, deepened to #B04A18 for contrast on the
+  ivory ground. Used for primary actions, active nav, focus rings, key chart
+  series. Never for large fills.
+- Light mode only. No dark theme and no theme toggle.
+- Typography is serif throughout. Source Serif 4 for body, tables, and controls;
+  Playfair Display for the wordmark, headings, and report headings. Geist Mono is
+  kept only for keyboard hints and digits that must align.
 - Spacing is generous. Dense tables, calm chrome.
 
 ## Components

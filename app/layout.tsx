@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Playfair_Display, Source_Serif_4, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display serif: high-contrast, editorial. Used for the wordmark, page titles,
+// headings, and report headings. Sets the royal, premium tone.
+const playfair = Playfair_Display({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Serif is permitted only for report headings in Module 4 exports.
+// Body serif: humanist and readable at UI sizes. The default face for all copy,
+// tables, and controls.
 const sourceSerif = Source_Serif_4({
   variable: "--font-source-serif",
+  subsets: ["latin"],
+});
+
+// Monospace is kept only for keyboard hints and any digits that must align.
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -31,9 +35,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased`}
+        className={`${playfair.variable} ${sourceSerif.variable} ${geistMono.variable} antialiased`}
       >
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <Toaster />
