@@ -65,13 +65,23 @@ export async function addPublicationAction(
   }
 
   const name = parsed.name && parsed.name.length ? parsed.name : nameFromUrl(url);
-  const pub = await insertPublication({
-    name,
-    website: url,
-    vertical: parsed.vertical,
-    tier: parsed.tier ?? "regional",
-    scrape_config: { ingestion: queuedState("add") } as unknown as Json,
-  });
+  let pub;
+  try {
+    pub = await insertPublication({
+      name,
+      website: url,
+      vertical: parsed.vertical,
+      tier: parsed.tier ?? "regional",
+      scrape_config: { ingestion: queuedState("add") } as unknown as Json,
+    });
+  } catch (err) {
+    // Unique violation on website (Postgres 23505): this publication is already
+    // in the database. Surface a clear message instead of the raw DB error.
+    if ((err as { code?: string })?.code === "23505") {
+      throw new Error("This publication is already in the media database.");
+    }
+    throw err;
+  }
 
   startIngestion(pub.id, "add");
   revalidatePath("/media");
