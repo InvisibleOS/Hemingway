@@ -112,6 +112,27 @@ Start on the Dashboard, Kadai and Co active.
 
 ---
 
+## Preview deployment (no database)
+
+For a hosted preview where the reviewer just needs to see the finished product,
+this branch bakes the seeded demo data into the repo (`lib/db/_demo`) and serves
+it through an in-memory client, so the app runs with no Supabase at all.
+
+Deploy the branch to Vercel with no environment variables set. Demo mode
+auto-enables whenever the Supabase vars are absent (or set `DEMO_MODE=1` to force
+it), and every provider defaults to mock, so no external keys are needed. Every
+screen renders exactly as on localhost. Interactions (approve, draft, snapshot)
+work in memory and reset on the next cold start, which is the intended behaviour
+for a throwaway preview.
+
+To refresh the baked data from a seeded local database:
+
+```bash
+npx tsx --env-file=.env.local scripts/dump-fixtures.ts
+```
+
+---
+
 ## What is live vs sandbox
 
 Every external service is reached only through `/lib/providers`, each with a mock
