@@ -114,7 +114,12 @@ export const realLlm: LlmProvider = {
   async embed(texts: string[]): Promise<number[][]> {
     const key = process.env.VOYAGE_API_KEY;
     if (!key) {
-      throw new Error("VOYAGE_API_KEY is required for llm.embed (real). See .env.example.");
+      // No embeddings provider configured. Return nothing rather than throwing:
+      // matching then uses its keyword fallback and ingestion stores null
+      // embeddings without logging a per-journalist error. (Qwen's only embedding
+      // model on OpenRouter is 4096-dim and slow, so it is not wired here; add a
+      // VOYAGE_API_KEY to enable vector matching. See docs/providers.md.)
+      return [];
     }
     const res = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
