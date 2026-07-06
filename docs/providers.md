@@ -8,7 +8,7 @@ NotImplementedError with the integration notes below.
 | Provider | Interface | MVP mode | Real integration notes |
 |---|---|---|---|
 | scraper | mapSite, scrapeAuthorPage, scrapeArticle | real (Firecrawl) | Already subscribed. Use v2 endpoints. |
-| llm | classifyJournalist, draftPitch, draftMonitorResponse, embed | real (Anthropic) | classify + embed on light tier, draftPitch on strongest tier. |
+| llm | classifyJournalist, draftPitch, draftMonitorResponse, embed | real (Qwen via OpenRouter) | Text runs on Qwen through OpenRouter (drafting strong tier, classify light tier). Embeddings stay on Voyage (voyage-3.5, 1024 dims); no Voyage key means matching uses the keyword fallback. |
 | seoData | getBacklinks, getAiMentions | real (DataForSEO) | Already subscribed. Snapshot into metrics_snapshots. |
 | verifier | verifyEmail(email) -> status | mock | Real: any pay-as-you-go verifier (ZeroBounce/NeverBounce class). One POST per address, map result to email_status enum. |
 | sender | pushPitch(pitch) -> externalId, getReplies() | mock | Real: Smartlead or Instantly API. Push approved pitches to a campaign, poll or webhook replies back to pitch status. |
